@@ -32,7 +32,7 @@ struct sockaddr_in mcast_destination_sock() {
         memset((char *)&groupSock, 0, sizeof(groupSock));
         groupSock.sin_family = AF_INET;
         groupSock.sin_addr.s_addr = inet_addr(MCASTGROUP);
-        groupSock.sin_port = htons(LOCALPORT);
+        groupSock.sin_port = htons(MCASTPORT);
 
         return groupSock;
 }
