@@ -8,10 +8,10 @@ CLIENT_H:=${COMMON_H} mcastclient.h
 
 
 server: ${SERVER} ${COMMON} ${SERVER_H}
-	g++ -g -o server ${SERVER} ${COMMON} -lpthread
+	g++ -g -std=c++17 -o server ${SERVER} ${COMMON} -lpthread
 
 client: ${CLIENT} ${COMMON} ${CLIENT_H}
-	g++ -g -o client ${CLIENT} ${COMMON} -lpthread
+	g++ -std=c++17 -g -o client ${CLIENT} ${COMMON} -lpthread
 
 
 clean:

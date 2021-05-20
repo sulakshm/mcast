@@ -1,5 +1,6 @@
 #include <iostream>
 #include <thread>
+#include <vector>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -15,15 +16,64 @@
 #include "mcastcommon.h"
 
 struct mcast_server_context {
-        int sd;
+        int sd = 0;
+        std::vector<std::string> ifaces;
+        bool inited = false;
+
+        mcast_server_context() = default;
+        mcast_server_context(std::vector<std::string> &ref)
+            : sd(0), ifaces(ref) {}
+
+        static std::unique_ptr<mcast_server_context> make() {
+                return std::make_unique<mcast_server_context>();
+        }
+
+        static std::unique_ptr<mcast_server_context>
+        make(const std::string &iface) {
+                auto c = mcast_server_context::make();
+                c->ifaces.emplace_back(iface);
+                return c;
+        }
+
+        static std::unique_ptr<mcast_server_context>
+        make(std::vector<std::string> &ifaces) {
+                auto c = mcast_server_context::make();
+
+                for (auto &i : ifaces) {
+                        c->ifaces.emplace_back(i);
+                }
+                return c;
+        }
 };
 
-int mcast_server_init(const char *localaddr) {
+int mcast_server_add_interface(std::unique_ptr<mcast_server_context> &c,
+                               const std::string &iface) {
+        if (c->inited) {
+                perror("cannot add interface after initializing");
+                return -EINVAL;
+        }
+
+        for (auto &i : c->ifaces) {
+                if (i == iface) {
+                        return -EEXIST;
+                }
+        }
+
+        c->ifaces.emplace_back(iface);
+        return 0;
+}
+
+int mcast_server_context_init(std::unique_ptr<mcast_server_context> &c) {
         const int reuse = 1;
         int sd;
         int rc;
         struct sockaddr_in localSock;
         struct ip_mreq group;
+
+        if (c->inited) {
+                perror("server context already initialized");
+                return -EINVAL;
+        }
 
         sd = socket(AF_INET, SOCK_DGRAM, 0);
         if (sd < 0) {
@@ -63,12 +113,15 @@ int mcast_server_init(const char *localaddr) {
         /* Note that this IP_ADD_MEMBERSHIP option must be */
         /* called for each local interface over which the multicast */
         /* datagrams are to be received. */
-        rc = mcast_membership_add(sd, MCASTGROUP, localaddr);
-        if (rc < 0) {
-                close(sd);
-                return rc;
+        for (auto &iface : c->ifaces) {
+                rc = mcast_membership_add(sd, MCASTGROUP, iface.c_str());
+                if (rc < 0) {
+                        close(sd);
+                        return rc;
+                }
+                printf("mcast membership %s added to interface %s... OK.\n",
+                       MCASTGROUP, iface.c_str());
         }
-        printf("mcast membership %s added... OK.\n", MCASTGROUP);
 
         rc = fcntl(sd, F_GETFL, 0);
         if (rc < 0) {
@@ -84,12 +137,32 @@ int mcast_server_init(const char *localaddr) {
                 return rc;
         }
 
-        return sd;
+        c->sd = sd;
+        c->inited = true;
+        return 0;
 }
 
-void cleanup(mcast_server_context *ctx) { close(ctx->sd); }
+std::unique_ptr<mcast_server_context> mcast_server_init(const char *localaddr) {
+        auto c = mcast_server_context::make(localaddr);
+        auto rc = mcast_server_context_init(c);
+        if (rc != 0) {
+                perror("mcast_server_context_init failed");
+                c.release();
+        }
 
-int handler(mcast_server_context *ctx) {
+        return c;
+}
+
+void cleanup(std::unique_ptr<mcast_server_context> &ctx) {
+        if (ctx == nullptr)
+                return;
+
+        if (ctx->inited)
+                close(ctx->sd);
+        ctx.release();
+}
+
+int handler(std::unique_ptr<mcast_server_context> &&ctx) {
         struct pollfd fds[1];
         char buff[1024];
         int timeout = (3 * 60 * 1000); // in msecs
@@ -159,12 +232,12 @@ int main(int argc, char *argv[]) {
                 help(argv[0]);
 
         const char *localaddr = argv[1];
-        int sd = mcast_server_init(localaddr);
-		if (sd < 0) exit(1);
+        auto ctx = mcast_server_init(localaddr);
+        if (ctx == nullptr) {
+                return -1;
+        }
 
-        struct mcast_server_context ctx = {.sd = sd};
-        std::thread mythread(handler, &ctx);
-
+        std::thread mythread(handler, std::move(ctx));
         mythread.join();
         return 0;
 }

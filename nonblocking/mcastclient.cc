@@ -9,8 +9,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "mcastcommon.h"
 #include "mcastclient.h"
+#include "mcastcommon.h"
 
 struct mcast_client_context {
         int sd;
@@ -71,7 +71,6 @@ int mcast_send(mcast_client_context *ctx, const char *msg, size_t len) {
         auto groupSock = mcast_destination();
         /* Send a message to the multicast group specified by the*/
         /* groupSock sockaddr structure. */
-        /*int datalen = 1024;*/
         int rc = sendto(ctx->sd, msg, len, 0, (struct sockaddr *)&groupSock,
                         sizeof(groupSock));
         if (rc < 0) {
@@ -93,16 +92,16 @@ int main(int argc, char *argv[]) {
                 help(argv[0]);
 
         const char *localaddr = argv[1];
-		const bool disableloopmsg = argv[2][0] == '1' ? true : false;
+        const bool disableloopmsg = argv[2][0] == '1' ? true : false;
 
-	std::cout << "argv[2][0]: " << argv[2][0] << std::endl;
-		std::cout << "parsed disableloopmsg: " << disableloopmsg << std::endl;
+        std::cout << "argv[2][0]: " << argv[2][0] << std::endl;
+        std::cout << "parsed disableloopmsg: " << disableloopmsg << std::endl;
 
         int sd = mcast_client_init(localaddr, disableloopmsg);
         if (sd < 0)
                 exit(1);
 
-        struct mcast_client_context ctx = {.sd = sd};
+        mcast_client_context ctx = {.sd = sd};
 
         const std::string msg = "test message!!!";
 
