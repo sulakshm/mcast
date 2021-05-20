@@ -6,13 +6,19 @@ COMMON_H:=mcastcommon.h
 SERVER_H:=${COMMON_H} mcastserver.h
 CLIENT_H:=${COMMON_H} mcastclient.h
 
+LIBS:=-lpthread
+OPTS:=-DENABLE_MAIN
+
+default:all
 
 server: ${SERVER} ${COMMON} ${SERVER_H}
-	g++ -g -std=c++17 -o server ${SERVER} ${COMMON} -lpthread
+	g++ -g -std=c++17 ${OPTS} -o server ${SERVER} ${COMMON} ${LIBS}
 
 client: ${CLIENT} ${COMMON} ${CLIENT_H}
-	g++ -std=c++17 -g -o client ${CLIENT} ${COMMON} -lpthread
+	g++ -std=c++17 -g ${OPTS} -o client ${CLIENT} ${COMMON} ${LIBS}
 
+all: server client
+	@echo "built all binaries"
 
 clean:
 	rm -f server client *.o

@@ -107,7 +107,7 @@ int mcast_client::send(const char *msg, size_t len) {
         return rc;
 }
 
-#if 1
+#ifdef ENABLE_MAIN
 void help(const char *pgm) {
         std::cout << "help: " << pgm
                   << " <localaddr> <disableloopbackmsg={0|1}>" << std::endl;
